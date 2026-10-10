@@ -1083,6 +1083,7 @@
         let violations = 0;
         let cooldownInterval = null;
         let simRunning = false;
+        let quizGraceUntil = 0;
 
         // ===================== PENYIMPANAN AMAN (GitHub Pages / mode privat) =====================
         // localStorage bisa gagal (private browsing, sandbox). Bungkus dengan fallback memori.
@@ -1546,6 +1547,10 @@
             // Cek jika ada penalti aktif sebelumnya di localStorage
             checkExistingPenalty();
 
+            // Grace period: abaikan sinyal blur/hide sesaat setelah masuk quiz
+            // (mis. efek samping dialog input nama yang baru ditutup).
+            quizGraceUntil = Date.now() + 2000;
+
             // Aktifkan Deteksi Anti-Cheat (Switch Tab)
             document.addEventListener("visibilitychange", handleVisibilityChange);
             window.addEventListener("blur", handleWindowBlur);
@@ -1555,6 +1560,9 @@
         function triggerViolation() {
             // Hanya aktif jika sesi quiz sedang tampil
             if(document.getElementById('quiz-section').style.display !== 'block') return;
+
+            // Abaikan sinyal palsu pada masa grace awal
+            if (Date.now() < quizGraceUntil) return;
 
             const existingEndTime = storage.get('cooldown_end_time');
             if (existingEndTime && parseInt(existingEndTime) > Date.now()) return; // Masih dalam penalti
@@ -1577,7 +1585,9 @@
         }
 
         function handleWindowBlur() {
-            triggerViolation();
+            // Hanya anggap pelanggaran bila tab/jendela benar-benar tidak terlihat.
+            // Perpindahan fokus biasa (klik address bar, dialog, dsb.) TIDAK dihitung.
+            if (document.hidden) triggerViolation();
         }
 
         function startCooldownTimer(endTime) {
